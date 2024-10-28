@@ -12,6 +12,7 @@ let isSubmitting = false;
 const ahkScriptPath = path.join(__dirname, "disable_keys.ahk");
 exec(`start "" "${ahkScriptPath}"`, (error, stdout, stderr) => {
   if (error) {
+    console.log(stdout,stderr);
     console.error(`Error starting AHK script: ${error.message}`);
     return;
   }
@@ -22,14 +23,24 @@ function terminateAutoHotkeyProcesses() {
   console.log('hiii');
   exec('taskkill /IM AutoHotkey64.exe /F', (error, stdout, stderr) => {
     if (error) {
+      console.log(stdout,stderr);
       console.error(`Error terminating AutoHotkey64: ${error.message}`);
     } else {
       console.log("AutoHotkey64 terminated successfully.");
     }
   });
-
+  exec('taskkill /IM AutoHotkeyU64.exe /F', (error, stdout, stderr) => {
+    if (error) {
+      console.log(stdout,stderr);
+      console.error(`Error terminating AutoHotkey64: ${error.message}`);
+    } else {
+      console.log("AutoHotkeyU64 terminated successfully.");
+    }
+  });
+  
   exec('taskkill /IM AutoHotkey32.exe /F', (error, stdout, stderr) => {
     if (error) {
+      console.log(stdout,stderr);
       console.error(`Error terminating AutoHotkey32: ${error.message}`);
     } else {
       console.log("AutoHotkey32 terminated successfully.");
@@ -153,6 +164,7 @@ processesToClose.forEach((process) => {
     if (error) {
       // console.error(`Failed to kill ${process}: ${error.message}`);
     } else {
+      console.log(stdout,stderr);
       console.log(`Successfully terminated ${process}`);
     }
   });
