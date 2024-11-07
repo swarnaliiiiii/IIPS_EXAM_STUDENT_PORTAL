@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, globalShortcut } = require("electron");
+const { app, BrowserWindow, Menu, globalShortcut, /*dialog*/ } = require("electron");
 const path = require("path");
 const axios = require("axios");
 const { exec } = require("child_process");
@@ -9,39 +9,62 @@ let mainWindow;
 const backendUrl = process.env.REACT_APP_BACKEND_URL;
 let isSubmitting = false;
 
-const ahkScriptPath = path.join(__dirname, "disable_keys.ahk");
+const isPackaged = app.isPackaged;
+const ahkScriptPath = isPackaged
+  ? path.join(process.resourcesPath, "app.asar.unpacked", "resources", "disable_keys.ahk")
+  : path.join(__dirname, "resources", "disable_keys.ahk");          // For development
+
+
+  console.log("AHK script path:", ahkScriptPath);
+
+
+// Function to check if AutoHotkey is running
+// function checkAutoHotkeyRunning() {
+  
+//   exec('tasklist /FI "IMAGENAME eq AutoHotkey Unicode 64-bit"', (error, stdout) => {
+//     if (error || !stdout.includes("AutoHotkey.exe")) {
+//       console.error("AutoHotkey is not running or not detected.");
+//       dialog.showErrorBox("AHK Alert", "AutoHotkey is not running. Please start it before launching the app.");
+//       process.exit(1); // Exit the application if AHK is not running
+//     } else {
+//       console.log("AutoHotkey is running.");
+//     }
+//   });
+// }
+
+// // Run the check before creating the Electron window
+// checkAutoHotkeyRunning();
+
 exec(`start "" "${ahkScriptPath}"`, (error, stdout, stderr) => {
   if (error) {
-    console.log(stdout,stderr);
     console.error(`Error starting AHK script: ${error.message}`);
+    console.log(stdout, stderr);
     return;
   }
   console.log("AHK script started successfully.");
 });
 
 function terminateAutoHotkeyProcesses() {
-  console.log('hiii');
   exec('taskkill /IM AutoHotkey64.exe /F', (error, stdout, stderr) => {
     if (error) {
-      console.log(stdout,stderr);
       console.error(`Error terminating AutoHotkey64: ${error.message}`);
+      console.log(stdout, stderr);
     } else {
       console.log("AutoHotkey64 terminated successfully.");
     }
   });
   exec('taskkill /IM AutoHotkeyU64.exe /F', (error, stdout, stderr) => {
     if (error) {
-      console.log(stdout,stderr);
-      console.error(`Error terminating AutoHotkey64: ${error.message}`);
+      console.error(`Error terminating AutoHotkeyU64: ${error.message}`);
+      console.log(stdout, stderr);
     } else {
       console.log("AutoHotkeyU64 terminated successfully.");
     }
   });
-  
   exec('taskkill /IM AutoHotkey32.exe /F', (error, stdout, stderr) => {
     if (error) {
-      console.log(stdout,stderr);
       console.error(`Error terminating AutoHotkey32: ${error.message}`);
+      console.log(stdout, stderr);
     } else {
       console.log("AutoHotkey32 terminated successfully.");
     }
@@ -159,12 +182,12 @@ const processesToClose = [
   "Greenshot.exe"
 ];
 
+// Terminate any disallowed processes
 processesToClose.forEach((process) => {
   exec(`taskkill /IM ${process} /F`, (error, stdout, stderr) => {
     if (error) {
-      // console.error(`Failed to kill ${process}: ${error.message}`);
+      console.log(`Failed to kill ${process}:`, stderr);
     } else {
-      console.log(stdout,stderr);
       console.log(`Successfully terminated ${process}`);
     }
   });
@@ -220,7 +243,6 @@ async function submitPaper() {
       await mainWindow.webContents.executeJavaScript('localStorage.clear();');
       await mainWindow.webContents.executeJavaScript('window.location.href = "/"');
       mainWindow.webContents.send("open-modal", { message: "Response submitted successfully!", isError: false });
-     
     } else {
       console.log("Failed to submit response: " + submitResponse.statusText);
       mainWindow.webContents.send("open-modal", { message: "Failed to submit response: " + submitResponse.statusText, isError: true });
@@ -251,9 +273,7 @@ function createWindow() {
   let blurTimeout;
 
   mainWindow.on("blur", () => {
-    blurTimeout = setTimeout(() => {
-      submitPaper();
-    }, 500); // Adjust delay as needed
+    submitPaper();
   });
 
   mainWindow.on("focus", () => {
@@ -289,8 +309,10 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
-  terminateAutoHotkeyProcesses(); // Terminate AHK script when app is quitting
+app.on("before-quit", (event) => {
+  event.preventDefault();
+  terminateAutoHotkeyProcesses();
+  process.exit();
 });
 
 app.on("activate", () => {
@@ -298,6 +320,11 @@ app.on("activate", () => {
 });
 
 process.on("SIGINT", () => {
+  terminateAutoHotkeyProcesses();
+  process.exit();
+});
+
+process.on("SIGTERM", () => {
   terminateAutoHotkeyProcesses();
   process.exit();
 });
