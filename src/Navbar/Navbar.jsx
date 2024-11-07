@@ -52,7 +52,7 @@ const Navbar = () => {
         { paperId }
       );
       const paper = response.data[0];
-      const endTime = new Date(paper.endTime);
+      const endTime = new Date(paper?.endTime);
       const currentTime = new Date();
       const remainingTime = Math.floor((endTime - currentTime) / 1000);
       setTimeLeft(remainingTime > 0 ? remainingTime : 0);

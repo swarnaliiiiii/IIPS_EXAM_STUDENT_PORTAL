@@ -41,3 +41,29 @@
 .stderr-output p{
   line-height: 1;
 }
+.spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.spinner-loader{
+  width: 48px;
+    height: 48px;
+    border: 5px solid #FFF;
+    border-bottom-color: #4caf50;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+}
+@keyframes rotation {
+  0% {
+      transform: rotate(0deg);
+  }
+  100% {
+      transform: rotate(360deg);
+  }
+}

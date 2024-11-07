@@ -11,6 +11,7 @@ const Body = ({ question }) => {
   const bodyContentsRef = useRef(null); // Reference for body-contents
   const [output, setOutput] = useState(""); // State to store the output
   const [codes, setCodes] = useState([]); // Array to store code for each question
+  const [outputloading, setoutputLoading] = useState(false);
 
   // Function to update the code for a specific question
   const updateCode = (questionId, newCode) => {
@@ -42,9 +43,9 @@ const Body = ({ question }) => {
       <div role="separator" tabIndex="1"></div>
 
       <div className="body-contents" data-flex-splitter-vertical ref={bodyContentsRef}>
-        <Editor question={question} onOutput={setOutput} getCode={getCode} updateCode={updateCode} />
+        <Editor question={question} onOutput={setOutput} getCode={getCode} updateCode={updateCode} setoutputLoading={setoutputLoading} /> 
         <div role="separator" tabIndex="1"></div>
-        <Test output={output} />
+        <Test output={output} loading={outputloading}/>
       </div>
     </div>
   );

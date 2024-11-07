@@ -18,22 +18,36 @@ const ahkScriptPath = isPackaged
   console.log("AHK script path:", ahkScriptPath);
 
 
-// Function to check if AutoHotkey is running
+// // Function to check if AutoHotkey is running
 // function checkAutoHotkeyRunning() {
-  
-//   exec('tasklist /FI "IMAGENAME eq AutoHotkey Unicode 64-bit"', (error, stdout) => {
-//     if (error || !stdout.includes("AutoHotkey.exe")) {
-//       console.error("AutoHotkey is not running or not detected.");
-//       dialog.showErrorBox("AHK Alert", "AutoHotkey is not running. Please start it before launching the app.");
-//       process.exit(1); // Exit the application if AHK is not running
+//   exec('tasklist', (error, stdout) => {
+//     if (error) {
+//       console.error("Error checking running processes:", error);
+//       dialog.showErrorBox("AHK Alert", "Error checking running processes. Please start AutoHotkey before launching the app.");
+//       process.exit(1); // Exit the application if there was an error checking the processes
 //     } else {
-//       console.log("AutoHotkey is running.");
+//       // Log the full tasklist output for debugging purposes
+//       // console.log("Tasklist output:\n", stdout);
+
+//       // Check for any of the possible process names
+//       const ahkProcesses = ["AutoHotkey.exe", "AutoHotkey64.exe", "AutoHotkeyU64.exe", "AutoHotkey32.exe","disable_keys.ahk"];
+//       const isAHKRunning = ahkProcesses.some(processName => stdout.toLowerCase().includes(processName.toLowerCase()));
+
+//       if (!isAHKRunning) {
+//         console.error("AutoHotkey is not running or not detected.");
+//         dialog.showErrorBox("AHK Alert", "AutoHotkey is not running. Please start it before launching the app.");
+//         process.exit(1); // Exit the application if AHK is not running
+//       } else {
+//         console.log("AutoHotkey is running.");
+//       }
 //     }
 //   });
 // }
 
 // // Run the check before creating the Electron window
-// checkAutoHotkeyRunning();
+
+  // checkAutoHotkeyRunning();
+
 
 exec(`start "" "${ahkScriptPath}"`, (error, stdout, stderr) => {
   if (error) {
@@ -45,28 +59,31 @@ exec(`start "" "${ahkScriptPath}"`, (error, stdout, stderr) => {
 });
 
 function terminateAutoHotkeyProcesses() {
-  exec('taskkill /IM AutoHotkey64.exe /F', (error, stdout, stderr) => {
+  exec('tasklist', (error, stdout) => {
     if (error) {
-      console.error(`Error terminating AutoHotkey64: ${error.message}`);
-      console.log(stdout, stderr);
-    } else {
-      console.log("AutoHotkey64 terminated successfully.");
+      console.error("Error checking running processes:", error);
+      return;
     }
-  });
-  exec('taskkill /IM AutoHotkeyU64.exe /F', (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error terminating AutoHotkeyU64: ${error.message}`);
-      console.log(stdout, stderr);
+
+    // List of possible AutoHotkey process names
+    const ahkProcesses = ["AutoHotkey64.exe", "AutoHotkeyU64.exe", "AutoHotkey32.exe"];
+    const runningProcesses = ahkProcesses.filter(processName => stdout.includes(processName));
+
+    if (runningProcesses.length > 0) {
+      console.log("Terminating running AutoHotkey processes...");
+
+      runningProcesses.forEach(processName => {
+        exec(`taskkill /IM ${processName} /F`, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Error terminating ${processName}: ${error.message}`);
+            console.log(stdout, stderr);
+          } else {
+            console.log(`${processName} terminated successfully.`);
+          }
+        });
+      });
     } else {
-      console.log("AutoHotkeyU64 terminated successfully.");
-    }
-  });
-  exec('taskkill /IM AutoHotkey32.exe /F', (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error terminating AutoHotkey32: ${error.message}`);
-      console.log(stdout, stderr);
-    } else {
-      console.log("AutoHotkey32 terminated successfully.");
+      console.log("No AutoHotkey processes are currently running.");
     }
   });
 }

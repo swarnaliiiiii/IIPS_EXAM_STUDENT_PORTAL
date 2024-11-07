@@ -10,7 +10,7 @@ import { loader } from "@monaco-editor/react";
 
 Modal.setAppElement("#root");
 
-const Editor = ({ question, onOutput }) => {
+const Editor = ({ question, onOutput ,setoutputLoading }) => {
 
   const editorContainerRef = useRef(null);
   const editorRef = useRef(null);
@@ -19,6 +19,7 @@ const Editor = ({ question, onOutput }) => {
   const [userCode, setUserCode] = useState("");
   const [userOutput, setUserOutput] = useState("");
   const [loading, setLoading] = useState(false);
+ 
 
   const localStorageKey = `code_${question?._id}`;
   const runHistoryKey = `runHistory_${question?._id}`;
@@ -89,6 +90,7 @@ const Editor = ({ question, onOutput }) => {
   const handleRunClick = async () => {
     const code = editorRef.current.getValue();
     setUserCode(code);
+   
     localStorage.setItem(localStorageKey, code);
 
     const needsInputModal = (code) => {
@@ -131,6 +133,7 @@ const Editor = ({ question, onOutput }) => {
     }
 
     setLoading(true);
+    setoutputLoading(true);
     try {
       const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/student/compile`, {
         code: code,
@@ -157,6 +160,7 @@ const Editor = ({ question, onOutput }) => {
       saveRunInLocalStorage(input, code, errorOutput);
     } finally {
       setLoading(false);
+      setoutputLoading(false);
     }
   };
 
@@ -250,6 +254,7 @@ Editor.propTypes = {
     image: PropTypes.string,
   }),
   onOutput: PropTypes.func.isRequired,
+  setoutputLoading: PropTypes.func.isRequired,
   userLang: PropTypes.string.isRequired,
 };
 
