@@ -7,10 +7,13 @@ Follow these steps to set up the student portal. Screenshots are provided for ad
 1. **Download the Zip File**  
    Download the zip file named `dist.zip` from the provided source.
  <br/>
+ 
 2. **Extract the Zip File**  
    Extract the contents of the `dist.zip` file to a folder of your choice.
  <br/>
-   ![Extract](https://raw.githubusercontent.com/nishant0708/IIPS_EXAM_STUDENT_PORTAL/refs/heads/master/setup_images/extract.png)
+ 
+   ![image](https://github.com/user-attachments/assets/44622df6-eba2-4364-8469-46bdf555cf09)
+
 
 3. **Open the Dist Folder**  
    Navigate to the extracted folder named `dist`.
