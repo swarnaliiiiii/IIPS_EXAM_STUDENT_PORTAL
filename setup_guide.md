@@ -11,8 +11,6 @@ Follow these steps to set up the student portal. Screenshots are provided for ad
 2. **Extract the Zip File**  
    Extract the contents of the `dist.zip` file to a folder of your choice.
  <br/>
- 
-   ![image](https://github.com/user-attachments/assets/44622df6-eba2-4364-8469-46bdf555cf09)
 
 
 3. **Open the Dist Folder**  
@@ -31,7 +29,8 @@ Follow these steps to set up the student portal. Screenshots are provided for ad
 5. **Install the Hot Key**  
    In the `third party` folder, locate and install the **Hot Key** application by following the on-screen prompts.
 
-   ![Install Hot Key](\setup_images\hot_key_install.png)
+  
+   ![image](https://github.com/user-attachments/assets/44622df6-eba2-4364-8469-46bdf555cf09)
 
 6. **Return to the Main Folder**  
    Go back to the main `dist` folder.
