@@ -11,6 +11,7 @@ dist/win-unpacked/StudentPortal.exe
 dist/win-unpacked/resources/app.asar
 
 
+
 # testing
 /coverage
 
