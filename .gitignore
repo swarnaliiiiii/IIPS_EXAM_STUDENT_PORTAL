@@ -6,6 +6,10 @@ test.txt
 /.pnp
 .pnp.js
 dist
+dist/StudentPortal Setup 0.1.0.exe
+dist/win-unpacked/StudentPortal.exe
+dist/win-unpacked/resources/app.asar
+
 
 # testing
 /coverage
