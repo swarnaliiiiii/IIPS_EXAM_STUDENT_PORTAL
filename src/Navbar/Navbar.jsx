@@ -15,7 +15,7 @@ import AlertModal from "../AlertModal/AlertModal";
 
 const Navbar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null); // Initialize to null
   const [currques, setCurrQues] = useState(null);
   const [studentDetails, setStudentDetails] = useState({
     fullName: "",
@@ -24,13 +24,13 @@ const Navbar = () => {
   const paperId = localStorage.getItem("paperId");
   const [questionList, setQuestionList] = useState([]);
   const studentId = localStorage.getItem("studentId");
-  const [timeOutModalIsOpen, setTimeOutModalIsOpen] = useState(false); // State to control modal visibility
-  const [submitModalIsOpen, setSubmitModalIsOpen] = useState(false); // State to control modal visibility
-  const [modalMessage, setModalMessage] = useState(""); // State to control modal message
+  const [timeOutModalIsOpen, setTimeOutModalIsOpen] = useState(false);
+  const [submitModalIsOpen, setSubmitModalIsOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   const { questionId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate(); // useNavigate to navigate to another route
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -125,13 +125,14 @@ const Navbar = () => {
   };
 
   const handleSubmit = async ({ timeup = false }) => {
+    if (timeLeft === null) return; // Prevent submission when time is not yet loaded
     try {
       if (location.pathname !== "/submit") {
         navigate("/submit");
       }
       if (timeup) {
         setModalMessage(
-          "Test time is up, your paper is submited automatically please exit!!"
+          "Test time is up, your paper is submitted automatically, please exit!!"
         );
         setTimeOutModalIsOpen(true);
         await onSubmit({ timeup: true });
@@ -152,6 +153,7 @@ const Navbar = () => {
     }
     setSubmitModalIsOpen(false);
   };
+
   useEffect(() => {
     fetchCurrentQuestion();
   }, [questionId, questionList]);
@@ -165,11 +167,11 @@ const Navbar = () => {
       setTimeLeft((prevTime) => {
         if (prevTime > 0) {
           return prevTime - 1;
-        } else {
+        } else if (prevTime === 0) {
           clearInterval(countdown);
           handleSubmit({ timeup: true }); // Auto-submit when time is up
-          return 0;
         }
+        return prevTime;
       });
     }, 1000);
 
@@ -221,7 +223,7 @@ const Navbar = () => {
         </div>
         <div className="navbar-timer navbar-right-margin">
           <CgSandClock />
-          <p>{formatTime(timeLeft)}</p>
+          <p>{timeLeft !== null ? formatTime(timeLeft) : "Loading..."}</p>
         </div>
       </div>
       <div className={`sidebar ${sidebarOpen ? "open" : ""}`}>
