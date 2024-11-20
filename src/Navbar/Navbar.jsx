@@ -125,11 +125,9 @@ const Navbar = () => {
   };
 
   const handleSubmit = async ({ timeup = false }) => {
-    if (timeLeft === null) return; // Prevent submission when time is not yet loaded
+    if (timeLeft === null) return; // Prevent submission if timeLeft isn't initialized
+    console.log("Handle submit called, timeup:", timeup); // Debug log
     try {
-      if (location.pathname !== "/submit") {
-        navigate("/submit");
-      }
       if (timeup) {
         setModalMessage(
           "Test time is up, your paper is submitted automatically, please exit!!"
@@ -146,6 +144,7 @@ const Navbar = () => {
   };
 
   const onSubmit = async ({ timeup = false } = {}) => {
+    console.log("Submitting responses, timeup:", timeup); // Debug log
     await submitResponse({ ontimeOut: timeup });
     if (!timeup) {
       navigate("/");
@@ -169,6 +168,7 @@ const Navbar = () => {
           return prevTime - 1;
         } else if (prevTime === 0) {
           clearInterval(countdown);
+          console.log("Time is up! Submitting paper..."); // Debug log
           handleSubmit({ timeup: true }); // Auto-submit when time is up
         }
         return prevTime;
