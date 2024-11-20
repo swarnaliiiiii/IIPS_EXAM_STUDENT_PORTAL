@@ -127,30 +127,53 @@ const Navbar = () => {
   const handleSubmit = async ({ timeup = false }) => {
     if (timeLeft === null) return; // Prevent submission if timeLeft isn't initialized
     console.log("Handle submit called, timeup:", timeup); // Debug log
-    try {
-      if (timeup) {
-        setModalMessage(
-          "Test time is up, your paper is submitted automatically, please exit!!"
-        );
-        setTimeOutModalIsOpen(true);
-        await onSubmit({ timeup: true });
+    console.log("tttt",timeup,timeLeft);
+    if (timeup) {
+      console.log("Checking submitt");
+      // If time is up, submit and show the modal
+      
+      setModalMessage(
+        "Test time is up, your paper is submitted automatically, please exit!!"
+      );
+      setTimeOutModalIsOpen(true);
+      await onSubmit({ timeup: true });
+    } else {
+      if (location.pathname !== "/submit") {
+        // Navigate to the /submit page if not already there
+        navigate("/submit");
       } else {
+        // If already on /submit, confirm submission
         setModalMessage("Are you sure you want to submit?");
         setSubmitModalIsOpen(true);
       }
-    } catch (error) {
-      console.error("Error during submission:", error);
     }
   };
 
   const onSubmit = async ({ timeup = false } = {}) => {
     console.log("Submitting responses, timeup:", timeup); // Debug log
-    await submitResponse({ ontimeOut: timeup });
-    if (!timeup) {
-      navigate("/");
+    try {
+      await submitResponse({ ontimeOut: timeup }); // Call submission API
+  
+      // After submission, display modal and redirect to home
+      if (timeup) {
+        setModalMessage(
+          "Test time is up, your paper is submitted automatically, please exit!!"
+        );
+        setTimeOutModalIsOpen(true);
+        setTimeout(() => {
+          navigate("/");
+          localStorage.clear();
+        }, 3000); // Delay for 3 seconds to show modal
+      } else {
+        navigate("/"); // Redirect immediately after manual submission
+      }
+  
+      // Close modals
       setTimeOutModalIsOpen(false);
+      setSubmitModalIsOpen(false);
+    } catch (error) {
+      console.error("Error during submission:", error);
     }
-    setSubmitModalIsOpen(false);
   };
 
   useEffect(() => {
@@ -161,7 +184,7 @@ const Navbar = () => {
     fetchPaperDetails();
     fetchStudentDetails();
     fetchQuestionDetails();
-
+  
     const countdown = setInterval(() => {
       setTimeLeft((prevTime) => {
         if (prevTime > 0) {
@@ -174,7 +197,7 @@ const Navbar = () => {
         return prevTime;
       });
     }, 1000);
-
+  
     return () => clearInterval(countdown);
   }, []);
 
