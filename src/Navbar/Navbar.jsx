@@ -15,7 +15,7 @@ import AlertModal from "../AlertModal/AlertModal";
 
 const Navbar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null); // Initialize to null
   const [currques, setCurrQues] = useState(null);
   const [studentDetails, setStudentDetails] = useState({
     fullName: "",
@@ -24,13 +24,13 @@ const Navbar = () => {
   const paperId = localStorage.getItem("paperId");
   const [questionList, setQuestionList] = useState([]);
   const studentId = localStorage.getItem("studentId");
-  const [timeOutModalIsOpen, setTimeOutModalIsOpen] = useState(false); // State to control modal visibility
-  const [submitModalIsOpen, setSubmitModalIsOpen] = useState(false); // State to control modal visibility
-  const [modalMessage, setModalMessage] = useState(""); // State to control modal message
+  const [timeOutModalIsOpen, setTimeOutModalIsOpen] = useState(false);
+  const [submitModalIsOpen, setSubmitModalIsOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
   const { questionId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate(); // useNavigate to navigate to another route
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -125,33 +125,57 @@ const Navbar = () => {
   };
 
   const handleSubmit = async ({ timeup = false }) => {
-    try {
+    if (timeLeft === null) return; // Prevent submission if timeLeft isn't initialized
+    console.log("Handle submit called, timeup:", timeup); // Debug log
+    console.log("tttt",timeup,timeLeft);
+    if (timeup) {
+      console.log("Checking submitt");
+      // If time is up, submit and show the modal
+      
+      setModalMessage(
+        "Test time is up, your paper is submitted automatically, please exit!!"
+      );
+      setTimeOutModalIsOpen(true);
+      await onSubmit({ timeup: true });
+    } else {
       if (location.pathname !== "/submit") {
+        // Navigate to the /submit page if not already there
         navigate("/submit");
-      }
-      if (timeup) {
-        setModalMessage(
-          "Test time is up, your paper is submited automatically please exit!!"
-        );
-        setTimeOutModalIsOpen(true);
-        await onSubmit({ timeup: true });
       } else {
+        // If already on /submit, confirm submission
         setModalMessage("Are you sure you want to submit?");
         setSubmitModalIsOpen(true);
       }
+    }
+  };
+
+  const onSubmit = async ({ timeup = false } = {}) => {
+    console.log("Submitting responses, timeup:", timeup); // Debug log
+    try {
+      await submitResponse({ ontimeOut: timeup }); // Call submission API
+  
+      // After submission, display modal and redirect to home
+      if (timeup) {
+        setModalMessage(
+          "Test time is up, your paper is submitted automatically, please exit!!"
+        );
+        setTimeOutModalIsOpen(true);
+        setTimeout(() => {
+          navigate("/");
+          localStorage.clear();
+        }, 3000); // Delay for 3 seconds to show modal
+      } else {
+        navigate("/"); // Redirect immediately after manual submission
+      }
+  
+      // Close modals
+      setTimeOutModalIsOpen(false);
+      setSubmitModalIsOpen(false);
     } catch (error) {
       console.error("Error during submission:", error);
     }
   };
 
-  const onSubmit = async ({ timeup = false } = {}) => {
-    await submitResponse({ ontimeOut: timeup });
-    if (!timeup) {
-      navigate("/");
-      setTimeOutModalIsOpen(false);
-    }
-    setSubmitModalIsOpen(false);
-  };
   useEffect(() => {
     fetchCurrentQuestion();
   }, [questionId, questionList]);
@@ -160,19 +184,20 @@ const Navbar = () => {
     fetchPaperDetails();
     fetchStudentDetails();
     fetchQuestionDetails();
-
+  
     const countdown = setInterval(() => {
       setTimeLeft((prevTime) => {
         if (prevTime > 0) {
           return prevTime - 1;
-        } else {
+        } else if (prevTime === 0) {
           clearInterval(countdown);
+          console.log("Time is up! Submitting paper..."); // Debug log
           handleSubmit({ timeup: true }); // Auto-submit when time is up
-          return 0;
         }
+        return prevTime;
       });
     }, 1000);
-
+  
     return () => clearInterval(countdown);
   }, []);
 
@@ -221,7 +246,7 @@ const Navbar = () => {
         </div>
         <div className="navbar-timer navbar-right-margin">
           <CgSandClock />
-          <p>{formatTime(timeLeft)}</p>
+          <p>{timeLeft !== null ? formatTime(timeLeft) : "Loading..."}</p>
         </div>
       </div>
       <div className={`sidebar ${sidebarOpen ? "open" : ""}`}>

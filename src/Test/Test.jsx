@@ -6,10 +6,16 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 
-
 const Test = ({ output, loading }) => {
   const stdout = output?.stdout || "";
   const stderr = output?.stderr || "";
+
+  const requiresMarkdown = (text) => {
+    // Check for Markdown-like syntax
+    return /[*_`[\]]/.test(text);
+  };
+
+  const wrapInCodeBlock = (text) => `\`\`\`\n${text}\n\`\`\``;
 
   return (
     <div className="compiler-test">
@@ -25,22 +31,34 @@ const Test = ({ output, loading }) => {
         ) : (
           <>
             {stdout && (
-              <ReactMarkdown
-                className="stdout-output"
-                remarkPlugins={[remarkBreaks]}
-                rehypePlugins={[rehypeSanitize]}
-              >
-                {stdout}
-              </ReactMarkdown>
+              <>
+                {requiresMarkdown(stdout) ? (
+                  <ReactMarkdown
+                    className="stdout-output"
+                    remarkPlugins={[remarkBreaks]}
+                    rehypePlugins={[rehypeSanitize]}
+                  >
+                    {wrapInCodeBlock(stdout)}
+                  </ReactMarkdown>
+                ) : (
+                  <pre className="stdout-output">{stdout}</pre>
+                )}
+              </>
             )}
             {stderr && (
-              <ReactMarkdown
-                className="stderr-output"
-                remarkPlugins={[remarkBreaks]}
-                rehypePlugins={[rehypeSanitize]}
-              >
-                {stderr}
-              </ReactMarkdown>
+              <>
+                {requiresMarkdown(stderr) ? (
+                  <ReactMarkdown
+                    className="stderr-output"
+                    remarkPlugins={[remarkBreaks]}
+                    rehypePlugins={[rehypeSanitize]}
+                  >
+                    {wrapInCodeBlock(stderr)}
+                  </ReactMarkdown>
+                ) : (
+                  <pre className="stderr-output">{stderr}</pre>
+                )}
+              </>
             )}
           </>
         )}
@@ -54,7 +72,7 @@ Test.propTypes = {
     stdout: PropTypes.string,
     stderr: PropTypes.string,
   }).isRequired,
-  loading: PropTypes.bool.isRequired, // Add loading prop type
+  loading: PropTypes.bool.isRequired,
 };
 
 export default Test;
