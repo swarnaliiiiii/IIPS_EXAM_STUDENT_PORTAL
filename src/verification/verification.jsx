@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import "./verification.css";
+import { useNavigate } from 'react-router-dom';
 
 const Verification = () => {
   const [deviceStatus, setDeviceStatus] = useState({
@@ -9,10 +10,24 @@ const Verification = () => {
   });
   const [testStatus, setTestStatus] = useState('Checking devices...');
   const [isRecording, setIsRecording] = useState(false);
+  const loginStatus  = useState(localStorage?.getItem('loginStatus'));
+  const name = localStorage.getItem('name');
+  const verified=localStorage.getItem("verified");
+  const papercode = localStorage.getItem('papercode');
+  const navigate = useNavigate();
 
   useEffect(() => {
     checkDevices();
-  }, []);
+    if (!loginStatus) {
+      stopTest();
+    }
+  }, [loginStatus]);
+  useEffect(() => {
+    if (verified) {
+      
+      navigate("/rules");
+    }
+  }, [])
 
   const checkDevices = () => {
     fetch('http://127.0.0.1:5000/initialize_devices')
@@ -25,7 +40,7 @@ const Verification = () => {
         });
         
         if (data.camera_ready && data.audio_ready) {
-          setTestStatus('Devices ready! You can start the test.');
+          setTestStatus('Devices ready! Please Wait...');
         } else {
           setTestStatus('Some devices are not ready. Please check your camera and microphone permissions.');
         }
@@ -44,30 +59,54 @@ const Verification = () => {
     }
 
     setIsRecording(true);
-    setTestStatus('Recording in progress...');
+    setTestStatus('Please wait...');
 
-    fetch('http://127.0.0.1:5000/start_test')
+    fetch('http://127.0.0.1:5000/start_test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        papercode, 
+        login_status: loginStatus  // Send login status to the server
+      })
+    })
       .then(() => {
-        // Start polling for test status
         const intervalId = setInterval(() => {
           fetch('http://127.0.0.1:5000/check_test_status')
             .then((response) => response.json())
             .then((statusData) => {
               if (statusData.recording_in_progress) {
-                setTestStatus('Recording in progress... Please wait');
+                setTestStatus(' Please wait.....');
               } else if (statusData.test_ready) {
                 setTestStatus('Recording completed! You can now proceed with the test.');
                 setIsRecording(false);
                 clearInterval(intervalId);
+                localStorage.setItem("verified",true);
+                navigate('/rules');
               }
             });
         }, 1000);
       })
       .catch((error) => {
-        console.error('Error starting test:', error);
-        setTestStatus('Error starting test. Please try again.');
+        console.error(error);
         setIsRecording(false);
+        setTestStatus('Error in recording. Please try again.');
       });
+  };
+
+  const stopTest = () => {
+    setIsRecording(false);
+    setTestStatus('Recording stopped due to logout.');
+    // Send a request to stop the recording on the server
+    fetch('http://127.0.0.1:5000/start_test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        papercode, 
+        login_status: false // Stop recording by setting login_status to false
+      })
+    });
   };
 
   return (
@@ -81,7 +120,7 @@ const Verification = () => {
           <li>Camera Status: {deviceStatus.camera ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Microphone Status: {deviceStatus.audio ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Once both devices are ready, you can start the test</li>
-          <li>The system will record 5 seconds of video and audio</li>
+          
         </ul>
       </div>
 
@@ -99,13 +138,13 @@ const Verification = () => {
           onClick={startTest}
           disabled={isRecording}
         >
-          {isRecording ? 'Recording in Progress...' : 'Start Test'}
+          {isRecording ? 'Please Wait...' : 'Start Test'}
         </button>
       )}
 
       {!deviceStatus.checking && (!deviceStatus.camera || !deviceStatus.audio) && (
         <button 
-          className="verification_retry_btn"
+          className="verification_start_test_btn"
           onClick={checkDevices}
         >
           Retry Device Check

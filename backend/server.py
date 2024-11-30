@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response, jsonify, request
 import cv2
 from mtcnn.mtcnn import MTCNN
 import pyaudio
@@ -11,9 +11,10 @@ import random
 import os
 import time
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize global variables
 cap = None
@@ -28,10 +29,10 @@ audio_ready = False
 recording_in_progress = False
 test_ready = False
 
-# Cloudinary configuration
+# Cloudinary configuration using environment variables for security
 cloudinary.config(
     cloud_name="duxvbwdf3",
-    api_key=282754191399316,
+    api_key="282754191399316",
     api_secret="4NYTt_3v2JK7-O0KUN9UwKrAWiE"
 )
 
@@ -75,21 +76,17 @@ def initialize_devices():
         print(f"Error initializing devices: {e}")
         return False
 
-def generate_three_digit_number():
-    return str(random.randint(100, 999))
-
-def record_video(duration=5):
+def record_video(name, papercode, duration=5):
     global recording_in_progress
     
     try:
         recording_in_progress = True
+        file_basename = f"{name}_{papercode}"
+        temp_filename = f"{file_basename}_video.mp4"
         
-        # Define the output video file
-        temp_filename = f'temp_video_{generate_three_digit_number()}.mp4'
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        # Use MP4V codec for MP4 format
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(temp_filename, fourcc, 20.0, (frame_width, frame_height))
         
@@ -97,8 +94,19 @@ def record_video(duration=5):
         while time.time() - start_time < duration:
             with lock:
                 ret, frame = cap.read()
-                if ret:
-                    out.write(frame)
+                if not ret:
+                    break
+                
+                # Detect faces in the frame using MTCNN
+                faces = detector.detect_faces(frame)
+                
+                # Draw a box around each detected face
+                for face in faces:
+                    x, y, width, height = face['box']
+                    x2, y2 = x + width, y + height
+                    cv2.rectangle(frame, (x, y), (x2, y2), (0, 255, 0), 2)
+                
+                out.write(frame)
                     
         out.release()
         
@@ -106,7 +114,7 @@ def record_video(duration=5):
         response = cloudinary.uploader.upload(
             temp_filename,
             resource_type="video",
-            public_id=f"video_{generate_three_digit_number()}",
+            public_id=f"{file_basename}_video",
             folder="media"
         )
         
@@ -122,9 +130,11 @@ def record_video(duration=5):
         recording_in_progress = False
         return None
 
-def record_audio(duration=5):
+
+def record_audio(name, papercode, duration=5):
     try:
-        filename = f'temp_audio_{generate_three_digit_number()}.wav'
+        file_basename = f"{name}_{papercode}"
+        filename = f"{file_basename}_audio.wav"
         
         stream = audio.open(
             format=pyaudio.paInt16,
@@ -152,7 +162,7 @@ def record_audio(duration=5):
         response = cloudinary.uploader.upload(
             filename,
             resource_type="raw",
-            public_id=f"audio_{generate_three_digit_number()}",
+            public_id=f"{file_basename}_audio",
             folder="media"
         )
         
@@ -166,39 +176,37 @@ def record_audio(duration=5):
         print(f"Error recording audio: {e}")
         return None
 
-def run_test_recording():
+def run_test_recording(name, papercode, login_status):
     global test_ready
-    
     try:
-        video_url = record_video()
-        audio_url = record_audio()
-        
-        if video_url and audio_url:
-            test_ready = True
-            return {'status': 'success', 'video_url': video_url, 'audio_url': audio_url}
-        else:
-            return {'status': 'error', 'message': 'Failed to record video or audio'}
+        while login_status:  # Keep recording until the login status is false
+            video_url = record_video(name, papercode)
+            audio_url = record_audio(name, papercode)
+            
+            if video_url and audio_url:
+                test_ready = True
+                return {'status': 'success', 'video_url': video_url, 'audio_url': audio_url}
+            else:
+                return {'status': 'error', 'message': 'Failed to record video or audio'}
+            
+        # If login_status becomes false, stop recording and cleanup
+        return {'status': 'error', 'message': 'Recording stopped due to logout'}
             
     except Exception as e:
         print(f"Error during recording: {e}")
         return {'status': 'error', 'message': str(e)}
 
-@app.route('/initialize_devices')
-def check_devices():
-    success = initialize_devices()
-    return jsonify({
-        'success': success,
-        'camera_ready': camera_ready,
-        'audio_ready': audio_ready
-    })
-
-@app.route('/start_test')
+@app.route('/start_test', methods=['POST'])
 def start_test():
     global test_ready
     test_ready = False
     
-    # Start recording in a separate thread
-    test_thread = threading.Thread(target=run_test_recording)
+    data = request.get_json()
+    name = data.get('name')
+    papercode = data.get('papercode')
+    login_status = data.get('login_status')  # Retrieve login status
+    
+    test_thread = threading.Thread(target=run_test_recording, args=(name, papercode, login_status))
     test_thread.start()
     
     return jsonify({'message': 'Recording started'})
@@ -210,6 +218,16 @@ def check_test_status():
         'audio_ready': audio_ready,
         'recording_in_progress': recording_in_progress,
         'test_ready': test_ready
+    })
+
+
+@app.route('/initialize_devices')
+def check_devices():
+    success = initialize_devices()
+    return jsonify({
+        'success': success,
+        'camera_ready': camera_ready,
+        'audio_ready': audio_ready
     })
 
 def generate_frames():
