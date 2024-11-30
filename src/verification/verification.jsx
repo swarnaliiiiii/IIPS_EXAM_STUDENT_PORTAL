@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import "./verification.css";
+import { useNavigate } from 'react-router-dom';
 
 const Verification = () => {
   const [deviceStatus, setDeviceStatus] = useState({
@@ -9,10 +10,17 @@ const Verification = () => {
   });
   const [testStatus, setTestStatus] = useState('Checking devices...');
   const [isRecording, setIsRecording] = useState(false);
+  const [loginStatus, setLoginStatus] = useState(localStorage.getItem('loginStatus') || true);
+  const name = localStorage.getItem('paperId');
+  const papercode = localStorage.getItem('studentId');
+  const navigate = useNavigate();
 
   useEffect(() => {
     checkDevices();
-  }, []);
+    if (!loginStatus) {
+      stopTest();
+    }
+  }, [loginStatus]);
 
   const checkDevices = () => {
     fetch('http://127.0.0.1:5000/initialize_devices')
@@ -46,9 +54,16 @@ const Verification = () => {
     setIsRecording(true);
     setTestStatus('Recording in progress...');
 
-    fetch('http://127.0.0.1:5000/start_test')
+    fetch('http://127.0.0.1:5000/start_test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        papercode, 
+        login_status: loginStatus  // Send login status to the server
+      })
+    })
       .then(() => {
-        // Start polling for test status
         const intervalId = setInterval(() => {
           fetch('http://127.0.0.1:5000/check_test_status')
             .then((response) => response.json())
@@ -59,15 +74,31 @@ const Verification = () => {
                 setTestStatus('Recording completed! You can now proceed with the test.');
                 setIsRecording(false);
                 clearInterval(intervalId);
+                navigate('/rules');
               }
             });
         }, 1000);
       })
       .catch((error) => {
-        console.error('Error starting test:', error);
-        setTestStatus('Error starting test. Please try again.');
+        console.error(error);
         setIsRecording(false);
+        setTestStatus('Error in recording. Please try again.');
       });
+  };
+
+  const stopTest = () => {
+    setIsRecording(false);
+    setTestStatus('Recording stopped due to logout.');
+    // Send a request to stop the recording on the server
+    fetch('http://127.0.0.1:5000/start_test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        papercode, 
+        login_status: false // Stop recording by setting login_status to false
+      })
+    });
   };
 
   return (
