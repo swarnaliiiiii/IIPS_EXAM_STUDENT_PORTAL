@@ -30,7 +30,7 @@ function Login() {
 
     if (studentId && paperId && teacherId) {
       // Redirect to /rules if all IDs are present and not undefined or null
-      navigate("/rules");
+      navigate("/verification");
     }
   }, [navigate]);
 
@@ -83,6 +83,9 @@ function Login() {
           localStorage.setItem("paperId", data.paperId);
           localStorage.setItem("studentId", data.studentId);
           localStorage.setItem("teacherId", data.teacherId);
+          localStorage.setItem("name", name);
+          localStorage.setItem("papercode", subcode);
+          localStorage.setItem("loginStatus", true);
 
           // Show success modal and redirect to /rules
           setModalMessage("Login successful!");
@@ -92,7 +95,7 @@ function Login() {
           // Redirect to /rules after the modal closes
           setTimeout(() => {
             setModalIsOpen(false);
-            navigate("/rules");
+            navigate("/verification");
           }, 2000);
         } else {
           const errorData = await response.json();

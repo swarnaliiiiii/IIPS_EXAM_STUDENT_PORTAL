@@ -208,9 +208,18 @@ const Navbar = () => {
           <FaBars onClick={toggleSidebar} className="hamburger-icon" />
           <div className="problem-list-text">Problem List</div>
         </div>
+        
         <div className="navbar-name">
           <div>{studentDetails.rollNumber}</div>
           <div>{studentDetails.fullName}</div>
+        </div>
+        <div>
+        <img
+        id="webcam_navbar"
+        className="webcam_navbar"
+        src="http://127.0.0.1:5000/video_feed"
+        alt="Webcam feed"
+      />
         </div>
         <div className="navbar-contents">
           <div className="navigation-display-flex">

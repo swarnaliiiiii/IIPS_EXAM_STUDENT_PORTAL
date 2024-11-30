@@ -14,7 +14,7 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize global variables
 cap = None
@@ -31,9 +31,9 @@ test_ready = False
 
 # Cloudinary configuration using environment variables for security
 cloudinary.config(
-    cloud_name="dxwa3pdoa",
-    api_key="778984368251582",
-    api_secret="weiMgu_sS9rq5tyoaAdABJSdnkM"
+    cloud_name="duxvbwdf3",
+    api_key="282754191399316",
+    api_secret="4NYTt_3v2JK7-O0KUN9UwKrAWiE"
 )
 
 def initialize_devices():

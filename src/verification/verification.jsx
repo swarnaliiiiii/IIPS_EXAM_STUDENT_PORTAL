@@ -10,9 +10,10 @@ const Verification = () => {
   });
   const [testStatus, setTestStatus] = useState('Checking devices...');
   const [isRecording, setIsRecording] = useState(false);
-  const [loginStatus, setLoginStatus] = useState(localStorage.getItem('loginStatus') || true);
-  const name = localStorage.getItem('paperId');
-  const papercode = localStorage.getItem('studentId');
+  const loginStatus  = useState(localStorage?.getItem('loginStatus'));
+  const name = localStorage.getItem('name');
+  const verified=localStorage.getItem("verified");
+  const papercode = localStorage.getItem('papercode');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,6 +22,12 @@ const Verification = () => {
       stopTest();
     }
   }, [loginStatus]);
+  useEffect(() => {
+    if (verified) {
+      
+      navigate("/rules");
+    }
+  }, [])
 
   const checkDevices = () => {
     fetch('http://127.0.0.1:5000/initialize_devices')
@@ -33,7 +40,7 @@ const Verification = () => {
         });
         
         if (data.camera_ready && data.audio_ready) {
-          setTestStatus('Devices ready! You can start the test.');
+          setTestStatus('Devices ready! Please Wait...');
         } else {
           setTestStatus('Some devices are not ready. Please check your camera and microphone permissions.');
         }
@@ -52,7 +59,7 @@ const Verification = () => {
     }
 
     setIsRecording(true);
-    setTestStatus('Recording in progress...');
+    setTestStatus('Please wait...');
 
     fetch('http://127.0.0.1:5000/start_test', {
       method: 'POST',
@@ -69,11 +76,12 @@ const Verification = () => {
             .then((response) => response.json())
             .then((statusData) => {
               if (statusData.recording_in_progress) {
-                setTestStatus('Recording in progress... Please wait');
+                setTestStatus(' Please wait.....');
               } else if (statusData.test_ready) {
                 setTestStatus('Recording completed! You can now proceed with the test.');
                 setIsRecording(false);
                 clearInterval(intervalId);
+                localStorage.setItem("verified",true);
                 navigate('/rules');
               }
             });
@@ -112,7 +120,7 @@ const Verification = () => {
           <li>Camera Status: {deviceStatus.camera ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Microphone Status: {deviceStatus.audio ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Once both devices are ready, you can start the test</li>
-          <li>The system will record 5 seconds of video and audio</li>
+          
         </ul>
       </div>
 
@@ -130,13 +138,13 @@ const Verification = () => {
           onClick={startTest}
           disabled={isRecording}
         >
-          {isRecording ? 'Recording in Progress...' : 'Start Test'}
+          {isRecording ? 'Please Wait...' : 'Start Test'}
         </button>
       )}
 
       {!deviceStatus.checking && (!deviceStatus.camera || !deviceStatus.audio) && (
         <button 
-          className="verification_retry_btn"
+          className="verification_start_test_btn"
           onClick={checkDevices}
         >
           Retry Device Check
