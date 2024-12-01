@@ -4,9 +4,11 @@ FROM python:3.9-slim
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install system dependencies needed by PyAudio, Rust, and build tools
+# Install system dependencies needed by PyAudio and build tools
 RUN apt-get update && apt-get install -y \
     portaudio19-dev \
+    libasound-dev \
+    libjack-dev \
     curl \
     build-essential \
     libssl-dev \
@@ -16,9 +18,10 @@ RUN apt-get update && apt-get install -y \
 
 # Install Rust (needed for maturin) and ensure it's available in PATH
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
-    echo "export PATH=/root/.cargo/bin:$PATH" >> ~/.bashrc
+    echo "export PATH=/root/.cargo/bin:$PATH" >> ~/.bashrc && \
+    source ~/.bashrc
 
-# Install pip, upgrade to the latest version
+# Install pip and upgrade to the latest version
 RUN python -m pip install --upgrade pip
 
 # Copy your application code into the container
