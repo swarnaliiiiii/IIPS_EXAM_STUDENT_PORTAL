@@ -4,7 +4,7 @@ FROM python:3.9-slim
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install system dependencies needed by PyAudio and build tools
+# Install system dependencies for PyAudio and other build tools
 RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     libasound-dev \
@@ -16,15 +16,18 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*  # Clean up apt cache to reduce image size
 
-# Install Rust (needed for maturin) and ensure it's available in PATH
+# Install Rust (if needed for other dependencies) and ensure it's available in PATH
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     echo "export PATH=/root/.cargo/bin:$PATH" >> ~/.bashrc && \
     source ~/.bashrc
 
-# Install pip and upgrade to the latest version
+# Upgrade pip
 RUN python -m pip install --upgrade pip
 
-# Copy your application code into the container
+# Install PyAudio manually
+RUN pip install --no-cache-dir --global-option="build_ext" --global-option="-I/usr/include/portaudio19" PyAudio
+
+# Copy application code into the container
 COPY . .
 
 # Install Python dependencies from requirements.txt
@@ -33,5 +36,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Expose the port the app will run on
 EXPOSE 8000
 
-# Set the command to run your application (modify 'server.py' if necessary)
+# Set the command to run your application
 CMD ["python", "server.py"]
