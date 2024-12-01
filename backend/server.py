@@ -37,6 +37,7 @@ def initialize_devices():
     
     try:
         # Initialize camera
+        print("Camera initialized successfully")
         if cap is None:
             cap = cv2.VideoCapture(0)
             if cap.isOpened():
