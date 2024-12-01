@@ -16,10 +16,13 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
+# Install Cloudinary directly to ensure availability
+RUN pip install cloudinary
+
 # Copy application code into the container
 COPY . .
 
-# Install Python dependencies from requirements.txt
+# Install Python dependencies from requirements.txt (Cloudinary will skip if already installed)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the port the app will run on
