@@ -1,11 +1,10 @@
 from flask import Flask, render_template, Response, jsonify, request
 import cv2
 from mtcnn.mtcnn import MTCNN
-import sounddevice as sd
-import numpy as np
+from pydub import AudioSegment
+import subprocess  # For calling ffmpeg directly
 import wave
 import threading
-import speech_recognition as sr
 import cloudinary
 import cloudinary.uploader
 import os
@@ -53,22 +52,16 @@ def initialize_devices():
         print(f"Error initializing devices: {e}")
         return False
 
-def record_audio(name, papercode, duration=5):
+def record_audio_with_ffmpeg(name, papercode, duration=5):
     try:
         file_basename = f"{name}_{papercode}"
         filename = f"{file_basename}_audio.wav"
         
-        # Capture audio data
-        sample_rate = 16000
-        recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
-        sd.wait()  # Wait until recording is finished
-        
-        # Save the recording to a WAV file
-        with wave.open(filename, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)  # 2 bytes per sample (16-bit audio)
-            wf.setframerate(sample_rate)
-            wf.writeframes(recording.tobytes())
+        # Use ffmpeg to record audio from the default system microphone
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "alsa", "-i", "default",
+            "-t", str(duration), filename
+        ])
         
         # Upload to Cloudinary
         response = cloudinary.uploader.upload(
@@ -147,7 +140,7 @@ def run_test_recording(name, papercode, login_status):
     try:
         while login_status:  # Keep recording until the login status is false
             video_url = record_video(name, papercode)
-            audio_url = record_audio(name, papercode)
+            audio_url = record_audio_with_ffmpeg(name, papercode)
             
             if video_url and audio_url:
                 test_ready = True
