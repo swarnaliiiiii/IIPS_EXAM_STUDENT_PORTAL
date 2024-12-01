@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir --global-option="build_ext" --global-option="-I/u
 COPY . .
 
 # Install Python dependencies from requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Expose the port the app will run on
 EXPOSE 8000
