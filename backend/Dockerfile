@@ -7,7 +7,7 @@ WORKDIR /app
 # Install system dependencies for PyAudio and other build tools
 RUN apt-get update && apt-get install -y \
     portaudio19-dev \
-    libasound-dev \
+    libasound2-dev \
     libjack-dev \
     curl \
     build-essential \
@@ -15,11 +15,6 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*  # Clean up apt cache to reduce image size
-
-# Install Rust (if needed for other dependencies) and ensure it's available in PATH
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
-    echo "export PATH=/root/.cargo/bin:$PATH" >> ~/.bashrc && \
-    source ~/.bashrc
 
 # Upgrade pip
 RUN python -m pip install --upgrade pip
@@ -31,7 +26,7 @@ RUN pip install --no-cache-dir --global-option="build_ext" --global-option="-I/u
 COPY . .
 
 # Install Python dependencies from requirements.txt
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the port the app will run on
 EXPOSE 8000
