@@ -1,5 +1,5 @@
-# Use an official lightweight Python image as the base
-FROM python:3.9-slim
+# Use a full Python image as the base (instead of slim)
+FROM python:3.9
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
-# Install PyAudio manually
-RUN pip install --no-cache-dir --global-option="build_ext" --global-option="-I/usr/include/portaudio19" PyAudio
+# Install PyAudio
+RUN pip install --no-cache-dir PyAudio
 
 # Copy application code into the container
 COPY . .
