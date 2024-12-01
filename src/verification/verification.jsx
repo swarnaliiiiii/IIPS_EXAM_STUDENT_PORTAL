@@ -40,7 +40,7 @@ const Verification = () => {
         });
         
         if (data.camera_ready && data.audio_ready) {
-          setTestStatus('Devices ready! Please Wait...');
+          setTestStatus('Devices are ready! Please Wait ...');
         } else {
           setTestStatus('Some devices are not ready. Please check your camera and microphone permissions.');
         }
