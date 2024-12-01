@@ -90,6 +90,7 @@ platformdirs==4.3.3
 prometheus_client==0.20.0
 prompt_toolkit==3.0.47
 protobuf==4.25.4
+opencv-python-headless==4.7.0.72
 psutil==6.0.0
 pure_eval==0.2.3
 pycparser==2.22

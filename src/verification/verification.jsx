@@ -30,7 +30,7 @@ const Verification = () => {
   }, [])
 
   const checkDevices = () => {
-    fetch('http://127.0.0.1:5000/initialize_devices')
+    fetch('https://iips-exam-student-portal.onrender.com/initialize_devices')
       .then((response) => response.json())
       .then((data) => {
         setDeviceStatus({
@@ -61,7 +61,7 @@ const Verification = () => {
     setIsRecording(true);
     setTestStatus('Please wait...');
 
-    fetch('http://127.0.0.1:5000/start_test', {
+    fetch('https://iips-exam-student-portal.onrender.com/start_test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -72,7 +72,7 @@ const Verification = () => {
     })
       .then(() => {
         const intervalId = setInterval(() => {
-          fetch('http://127.0.0.1:5000/check_test_status')
+          fetch('https://iips-exam-student-portal.onrender.com/check_test_status')
             .then((response) => response.json())
             .then((statusData) => {
               if (statusData.recording_in_progress) {
@@ -98,7 +98,7 @@ const Verification = () => {
     setIsRecording(false);
     setTestStatus('Recording stopped due to logout.');
     // Send a request to stop the recording on the server
-    fetch('http://127.0.0.1:5000/start_test', {
+    fetch('https://iips-exam-student-portal.onrender.com/start_test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -128,7 +128,7 @@ const Verification = () => {
       <img
         id="verification_webcam"
         className="verification_webcam"
-        src="http://127.0.0.1:5000/video_feed"
+        src="https://iips-exam-student-portal.onrender.com/video_feed"
         alt="Webcam feed"
       />
 
