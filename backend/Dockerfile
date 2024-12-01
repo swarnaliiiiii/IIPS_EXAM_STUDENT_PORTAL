@@ -1,15 +1,15 @@
-# Use a full Python image as the base (instead of slim)
+# Base image
 FROM python:3.9
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install system dependencies for OpenCV and other tools (pyaudio dependencies removed)
+# Install system dependencies for sounddevice and other tools
 RUN apt-get update && apt-get install -y \
+    portaudio19-dev \
+    libasound2-dev \
+    libjack-dev \
     curl \
-    libsm6 \
-    libxext6 \
-    libgl1-mesa-glx \
     build-essential \
     && rm -rf /var/lib/apt/lists/*  # Clean up apt cache to reduce image size
 
