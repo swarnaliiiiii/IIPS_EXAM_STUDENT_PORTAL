@@ -37,10 +37,6 @@ RECORDINGS_FOLDER = "exam_recordings"
 if not os.path.exists(RECORDINGS_FOLDER):
     os.makedirs(RECORDINGS_FOLDER)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
 def initialize_devices():
     global cap, camera_initialized, audio_initialized
     
