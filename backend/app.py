@@ -1,8 +1,9 @@
 from flask import Flask, render_template, Response, jsonify, request
 import cv2
 from mtcnn.mtcnn import MTCNN
-import pyaudio
-import wave
+import sounddevice as sd
+import scipy.io.wavfile as wav
+import numpy as np
 import threading
 import speech_recognition as sr
 import cloudinary
@@ -18,7 +19,6 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize global variables
 cap = None
-audio = None
 detector = MTCNN()
 recognizer = sr.Recognizer()
 lock = threading.Lock()
@@ -29,6 +29,10 @@ audio_ready = False
 recording_in_progress = False
 test_ready = False
 
+# Audio configuration
+SAMPLE_RATE = 16000
+CHANNELS = 1
+
 # Cloudinary configuration using environment variables for security
 cloudinary.config(
     cloud_name="duxvbwdf3",
@@ -37,7 +41,7 @@ cloudinary.config(
 )
 
 def initialize_devices():
-    global cap, audio, camera_ready, audio_ready
+    global cap, camera_ready, audio_ready
     
     try:
         # Initialize camera
@@ -50,25 +54,19 @@ def initialize_devices():
                 print("Failed to initialize camera")
                 return False
         
-        # Initialize audio
-        if audio is None:
-            audio = pyaudio.PyAudio()
-            try:
-                # Test audio input
-                stream = audio.open(
-                    format=pyaudio.paInt16,
-                    channels=1,
-                    rate=16000,
-                    input=True,
-                    frames_per_buffer=1024,
-                    start=False
-                )
-                stream.close()
-                audio_ready = True
-                print("Audio initialized successfully")
-            except Exception as e:
-                print(f"Failed to initialize audio: {e}")
-                return False
+        # Test audio input
+        try:
+            sd.check_input_settings(
+                device=None,
+                channels=CHANNELS,
+                samplerate=SAMPLE_RATE,
+                dtype=np.int16
+            )
+            audio_ready = True
+            print("Audio initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize audio: {e}")
+            return False
         
         return camera_ready and audio_ready
     
@@ -130,33 +128,25 @@ def record_video(name, papercode, duration=5):
         recording_in_progress = False
         return None
 
-
 def record_audio(name, papercode, duration=5):
     try:
         file_basename = f"{name}_{papercode}"
         filename = f"{file_basename}_audio.wav"
         
-        stream = audio.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=16000,
-            input=True,
-            frames_per_buffer=1024
+        # Calculate total samples
+        total_samples = int(SAMPLE_RATE * duration)
+        
+        # Record audio using sounddevice
+        recording = sd.rec(
+            frames=total_samples,
+            samplerate=SAMPLE_RATE,
+            channels=CHANNELS,
+            dtype=np.int16
         )
+        sd.wait()  # Wait until recording is finished
         
-        frames = []
-        for _ in range(0, int(16000 / 1024 * duration)):
-            data = stream.read(1024)
-            frames.append(data)
-            
-        stream.stop_stream()
-        stream.close()
-        
-        with wave.open(filename, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
-            wf.setframerate(16000)
-            wf.writeframes(b''.join(frames))
+        # Save the recording to WAV file
+        wav.write(filename, SAMPLE_RATE, recording)
             
         # Upload to Cloudinary
         response = cloudinary.uploader.upload(
@@ -219,7 +209,6 @@ def check_test_status():
         'recording_in_progress': recording_in_progress,
         'test_ready': test_ready
     })
-
 
 @app.route('/initialize_devices')
 def check_devices():
