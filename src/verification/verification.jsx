@@ -30,11 +30,11 @@ const Verification = () => {
   }, [verified, navigate]);
 
   const checkDevices = () => {
-    fetch('http://127.0.0.1:5000/initialize') // Updated endpoint
+    fetch('http://127.0.0.1:5000/initialize')
       .then((response) => response.json())
       .then((data) => {
         setDeviceStatus({
-          camera: data.camera_status, // Adjusted according to Flask response
+          camera: data.camera_status,
           audio: data.audio_status,
           checking: false
         });
@@ -61,7 +61,7 @@ const Verification = () => {
     setIsRecording(true);
     setTestStatus('Please wait...');
 
-    fetch('http://127.0.0.1:5000/start_exam_recording', { // Updated endpoint
+    fetch('http://127.0.0.1:5000/start_exam_recording', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -71,7 +71,7 @@ const Verification = () => {
     })
       .then(() => {
         const intervalId = setInterval(() => {
-          fetch('http://127.0.0.1:5000/get_recording_status') // Updated endpoint
+          fetch('http://127.0.0.1:5000/get_recording_status')
             .then((response) => response.json())
             .then((statusData) => {
               if (statusData.is_recording) {
@@ -97,8 +97,8 @@ const Verification = () => {
     setIsRecording(false);
     setTestStatus('Recording stopped due to logout.');
     
-    // Send a request to stop the recording on the server
-    fetch('http://127.0.0.1:5000/stop_exam_recording', { // Updated endpoint
+    
+    fetch('http://127.0.0.1:5000/stop_exam_recording', { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
