@@ -10,9 +10,9 @@ const Verification = () => {
   });
   const [testStatus, setTestStatus] = useState('Checking devices...');
   const [isRecording, setIsRecording] = useState(false);
-  const loginStatus  = useState(localStorage?.getItem('loginStatus'));
+  const loginStatus = localStorage.getItem('loginStatus') === 'true'; // Ensure it's a boolean
   const name = localStorage.getItem('name');
-  const verified=localStorage.getItem("verified");
+  const verified = localStorage.getItem("verified");
   const papercode = localStorage.getItem('papercode');
   const navigate = useNavigate();
 
@@ -22,24 +22,24 @@ const Verification = () => {
       stopTest();
     }
   }, [loginStatus]);
+
   useEffect(() => {
     if (verified) {
-      
       navigate("/rules");
     }
-  }, [])
+  }, [verified, navigate]);
 
   const checkDevices = () => {
-    fetch('http://127.0.0.1:5000/initialize_devices')
+    fetch('http://127.0.0.1:5000/initialize') // Updated endpoint
       .then((response) => response.json())
       .then((data) => {
         setDeviceStatus({
-          camera: data.camera_ready,
-          audio: data.audio_ready,
+          camera: data.camera_status, // Adjusted according to Flask response
+          audio: data.audio_status,
           checking: false
         });
-        
-        if (data.camera_ready && data.audio_ready) {
+
+        if (data.camera_status && data.audio_status) {
           setTestStatus('Devices are ready! Please Wait ...');
         } else {
           setTestStatus('Some devices are not ready. Please check your camera and microphone permissions.');
@@ -61,27 +61,26 @@ const Verification = () => {
     setIsRecording(true);
     setTestStatus('Please wait...');
 
-    fetch('http://127.0.0.1:5000/start_test', {
+    fetch('http://127.0.0.1:5000/start_exam_recording', { // Updated endpoint
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         name, 
-        papercode, 
-        login_status: loginStatus  // Send login status to the server
+        papercode 
       })
     })
       .then(() => {
         const intervalId = setInterval(() => {
-          fetch('http://127.0.0.1:5000/check_test_status')
+          fetch('http://127.0.0.1:5000/get_recording_status') // Updated endpoint
             .then((response) => response.json())
             .then((statusData) => {
-              if (statusData.recording_in_progress) {
-                setTestStatus(' Please wait.....');
-              } else if (statusData.test_ready) {
+              if (statusData.is_recording) {
+                setTestStatus('Recording in progress... Please wait...');
+              } else if (statusData.recording_started) {
                 setTestStatus('Recording completed! You can now proceed with the test.');
                 setIsRecording(false);
                 clearInterval(intervalId);
-                localStorage.setItem("verified",true);
+                localStorage.setItem("verified", true);
                 navigate('/rules');
               }
             });
@@ -97,14 +96,14 @@ const Verification = () => {
   const stopTest = () => {
     setIsRecording(false);
     setTestStatus('Recording stopped due to logout.');
+    
     // Send a request to stop the recording on the server
-    fetch('http://127.0.0.1:5000/start_test', {
+    fetch('http://127.0.0.1:5000/stop_exam_recording', { // Updated endpoint
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         name, 
-        papercode, 
-        login_status: false // Stop recording by setting login_status to false
+        papercode 
       })
     });
   };
@@ -120,7 +119,6 @@ const Verification = () => {
           <li>Camera Status: {deviceStatus.camera ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Microphone Status: {deviceStatus.audio ? '✅ Ready' : '⏳ Checking...'}</li>
           <li>Once both devices are ready, you can start the test</li>
-          
         </ul>
       </div>
 

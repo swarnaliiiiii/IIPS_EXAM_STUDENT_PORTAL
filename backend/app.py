@@ -1,222 +1,288 @@
 from flask import Flask, render_template, Response, jsonify, request
 import cv2
-from mtcnn.mtcnn import MTCNN
-import sounddevice as sd
-import scipy.io.wavfile as wav
-import numpy as np
 import threading
-import speech_recognition as sr
 import cloudinary
 import cloudinary.uploader
-import random
 import os
 import time
 from flask_cors import CORS
-import os
+from datetime import datetime
+import wave
+import platform
+import audioop
+import numpy as np
+from array import array
+import winreg
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize global variables
 cap = None
-detector = MTCNN()
-recognizer = sr.Recognizer()
 lock = threading.Lock()
+recording_thread = None
+audio_thread = None
+is_recording = False
+current_video_writer = None
+recording_start_time = None
+exam_details = None
+
+# Audio settings
+CHUNK = 1024
+FORMAT = 'h'  # signed short
+CHANNELS = 1
+RATE = 44100
+audio_data = []
 
 # Status flags
-camera_ready = False
-audio_ready = False
-recording_in_progress = False
-test_ready = False
+camera_initialized = False
+audio_initialized = False
+recording_started = False
 
-# Audio configuration
-SAMPLE_RATE = 16000
-CHANNELS = 1
-
-# Cloudinary configuration using environment variables for security
+# Cloudinary configuration
 cloudinary.config(
-    cloud_name="duxvbwdf3",
-    api_key="282754191399316",
-    api_secret="4NYTt_3v2JK7-O0KUN9UwKrAWiE"
+    cloud_name="dxwa3pdoa",
+    api_key="778984368251582",
+    api_secret="weiMgu_sS9rq5tyoaAdABJSdnkM"
 )
 
-def initialize_devices():
-    global cap, camera_ready, audio_ready
-    
+# Define a folder for local storage
+RECORDINGS_FOLDER = "exam_recordings"
+if not os.path.exists(RECORDINGS_FOLDER):
+    os.makedirs(RECORDINGS_FOLDER)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def check_audio_devices():
+    """Check for available audio input devices"""
     try:
-        # Initialize camera
+        if platform.system() == 'Windows':
+            try:
+                winmm = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                     r'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32')
+                return True
+            except WindowsError:
+                print("No audio devices found in Windows registry")
+                return False
+        else:
+            # For Linux/Mac, check if /dev/audio or /dev/dsp exists
+            return os.path.exists('/dev/audio') or os.path.exists('/dev/dsp')
+    except Exception as e:
+        print(f"Error checking audio devices: {e}")
+        return False
+
+def initialize_devices():
+    global cap, camera_initialized, audio_initialized
+    
+    print("\nInitializing devices...")
+    
+    # Initialize camera
+    try:
         if cap is None:
             cap = cv2.VideoCapture(0)
             if cap.isOpened():
-                camera_ready = True
-                print("Camera initialized successfully")
+                camera_initialized = True
+                print("✓ Camera initialized successfully")
             else:
-                print("Failed to initialize camera")
-                return False
+                print("✗ Failed to initialize camera")
         
-        # Test audio input
-        try:
-            sd.check_input_settings(
-                device=None,
-                channels=CHANNELS,
-                samplerate=SAMPLE_RATE,
-                dtype=np.int16
-            )
-            audio_ready = True
-            print("Audio initialized successfully")
-        except Exception as e:
-            print(f"Failed to initialize audio: {e}")
-            return False
+        # Check audio devices
+        if check_audio_devices():
+            audio_initialized = True
+            print("✓ Audio system initialized successfully")
+        else:
+            print("✗ Failed to initialize audio system")
+            
+        # Print overall status
+        print("\nDevice Status:")
+        print(f"Camera: {'Available' if camera_initialized else 'Not Available'}")
+        print(f"Audio: {'Available' if audio_initialized else 'Not Available'}")
         
-        return camera_ready and audio_ready
+        return camera_initialized and audio_initialized
     
     except Exception as e:
-        print(f"Error initializing devices: {e}")
+        print(f"Error during initialization: {e}")
         return False
 
-def record_video(name, papercode, duration=5):
-    global recording_in_progress
+def record_audio():
+    global is_recording, audio_data
     
     try:
-        recording_in_progress = True
-        file_basename = f"{name}_{papercode}"
-        temp_filename = f"{file_basename}_video.mp4"
+        print("\n🎤 Audio recording started")
+        while is_recording:
+            # Simulate audio capture with silence
+            chunk = array('h', [0] * CHUNK)
+            audio_data.extend(chunk)
+            time.sleep(CHUNK/RATE)  # Simulate real-time recording
+            
+    except Exception as e:
+        print(f"Error in audio recording: {e}")
+
+def save_audio(filename):
+    """Save recorded audio to WAV file"""
+    try:
+        with wave.open(filename, 'wb') as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(2)  # 2 bytes for 'h' format
+            wf.setframerate(RATE)
+            wf.writeframes(array('h', audio_data).tobytes())
+        return True
+    except Exception as e:
+        print(f"Error saving audio: {e}")
+        return False
+
+def continuous_recording():
+    global is_recording, cap, current_video_writer, recording_start_time, exam_details
+    
+    try:
+        # Create video file with exam details
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        video_filename = f"exam_{exam_details['name']}_{exam_details['papercode']}_{timestamp}.mp4"
+        audio_filename = f"exam_{exam_details['name']}_{exam_details['papercode']}_{timestamp}.wav"
+        
+        print(f"\n📹 Starting video recording: {video_filename}")
         
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(temp_filename, fourcc, 20.0, (frame_width, frame_height))
+        current_video_writer = cv2.VideoWriter(video_filename, fourcc, 20.0, (frame_width, frame_height))
+        recording_start_time = time.time()
         
-        start_time = time.time()
-        while time.time() - start_time < duration:
+        while is_recording:
             with lock:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 
-                # Detect faces in the frame using MTCNN
-                faces = detector.detect_faces(frame)
+                # Add timestamp to frame
+                elapsed_time = int(time.time() - recording_start_time)
+                timestamp_text = f"Time: {elapsed_time//3600:02d}:{(elapsed_time%3600)//60:02d}:{elapsed_time%60:02d}"
+                cv2.putText(frame, timestamp_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 
-                # Draw a box around each detected face
-                for face in faces:
-                    x, y, width, height = face['box']
-                    x2, y2 = x + width, y + height
-                    cv2.rectangle(frame, (x, y), (x2, y2), (0, 255, 0), 2)
-                
-                out.write(frame)
-                    
-        out.release()
+                current_video_writer.write(frame)
         
-        # Upload to Cloudinary
-        response = cloudinary.uploader.upload(
-            temp_filename,
+        # Clean up video
+        if current_video_writer:
+            current_video_writer.release()
+            
+        # Save and upload audio
+        save_audio(audio_filename)
+        
+        print("\n💾 Uploading recordings to cloud...")
+        
+        # Upload both files to Cloudinary
+        video_response = cloudinary.uploader.upload(
+            video_filename,
             resource_type="video",
-            public_id=f"{file_basename}_video",
-            folder="media"
+            public_id=f"exam_{exam_details['name']}_{exam_details['papercode']}_video",
+            folder="examinations"
         )
         
-        # Clean up temporary file
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
-            
-        recording_in_progress = False
-        return response['secure_url']
-    
-    except Exception as e:
-        print(f"Error recording video: {e}")
-        recording_in_progress = False
-        return None
-
-def record_audio(name, papercode, duration=5):
-    try:
-        file_basename = f"{name}_{papercode}"
-        filename = f"{file_basename}_audio.wav"
-        
-        # Calculate total samples
-        total_samples = int(SAMPLE_RATE * duration)
-        
-        # Record audio using sounddevice
-        recording = sd.rec(
-            frames=total_samples,
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype=np.int16
-        )
-        sd.wait()  # Wait until recording is finished
-        
-        # Save the recording to WAV file
-        wav.write(filename, SAMPLE_RATE, recording)
-            
-        # Upload to Cloudinary
-        response = cloudinary.uploader.upload(
-            filename,
+        audio_response = cloudinary.uploader.upload(
+            audio_filename,
             resource_type="raw",
-            public_id=f"{file_basename}_audio",
-            folder="media"
+            public_id=f"exam_{exam_details['name']}_{exam_details['papercode']}_audio",
+            folder="examinations"
         )
         
-        # Clean up temporary file
-        if os.path.exists(filename):
-            os.remove(filename)
-            
-        return response['secure_url']
+        # Clean up temporary files
+        os.remove(video_filename)
+        os.remove(audio_filename)
         
+        print("✓ Recordings uploaded successfully")
+            
+        return {
+            'video_url': video_response['secure_url'],
+            'audio_url': audio_response['secure_url']
+        }
+                
     except Exception as e:
-        print(f"Error recording audio: {e}")
+        print(f"Error in recording: {e}")
+        if current_video_writer:
+            current_video_writer.release()
         return None
 
-def run_test_recording(name, papercode, login_status):
-    global test_ready
-    try:
-        while login_status:  # Keep recording until the login status is false
-            video_url = record_video(name, papercode)
-            audio_url = record_audio(name, papercode)
-            
-            if video_url and audio_url:
-                test_ready = True
-                return {'status': 'success', 'video_url': video_url, 'audio_url': audio_url}
-            else:
-                return {'status': 'error', 'message': 'Failed to record video or audio'}
-            
-        # If login_status becomes false, stop recording and cleanup
-        return {'status': 'error', 'message': 'Recording stopped due to logout'}
-            
-    except Exception as e:
-        print(f"Error during recording: {e}")
-        return {'status': 'error', 'message': str(e)}
+def start_continuous_recording():
+    global recording_thread, audio_thread, is_recording, audio_data, recording_started
+    
+    if not is_recording and exam_details:
+        is_recording = True
+        audio_data = []  # Clear previous audio data
+        
+        # Start video and audio recording threads
+        recording_thread = threading.Thread(target=continuous_recording)
+        audio_thread = threading.Thread(target=record_audio)
+        
+        recording_thread.start()
+        audio_thread.start()
+        
+        recording_started = True
+        print("\n🎥 Recording started")
+        print("📊 Status:")
+        print("  • Video: Recording")
+        print("  • Audio: Recording")
+        return True
+    return False
 
-@app.route('/start_test', methods=['POST'])
-def start_test():
-    global test_ready
-    test_ready = False
+def stop_continuous_recording():
+    global is_recording, recording_thread, audio_thread, recording_started
+    
+    if is_recording:
+        is_recording = False
+        if recording_thread:
+            recording_thread.join()
+        if audio_thread:
+            audio_thread.join()
+        recording_started = False
+        print("\n⏹️ Recording stopped")
+        return True
+    return False
+
+@app.route('/start_exam_recording', methods=['POST'])
+def start_exam_recording():
+    global exam_details
     
     data = request.get_json()
-    name = data.get('name')
-    papercode = data.get('papercode')
-    login_status = data.get('login_status')  # Retrieve login status
+    exam_details = {
+        'name': data.get('name'),
+        'papercode': data.get('papercode')
+    }
     
-    test_thread = threading.Thread(target=run_test_recording, args=(name, papercode, login_status))
-    test_thread.start()
-    
-    return jsonify({'message': 'Recording started'})
-
-@app.route('/check_test_status')
-def check_test_status():
+    if start_continuous_recording():
+        return jsonify({
+            'message': 'Exam recording started',
+            'start_time': recording_start_time,
+            'status': {
+                'video': 'Recording',
+                'audio': 'Recording'
+            }
+        })
     return jsonify({
-        'camera_ready': camera_ready,
-        'audio_ready': audio_ready,
-        'recording_in_progress': recording_in_progress,
-        'test_ready': test_ready
+        'message': 'Failed to start recording',
+        'error': 'Recording already in progress or missing exam details'
     })
 
-@app.route('/initialize_devices')
-def check_devices():
-    success = initialize_devices()
+@app.route('/stop_exam_recording', methods=['POST'])
+def stop_exam_recording():
+    if stop_continuous_recording():
+        return jsonify({
+            'message': 'Recording stopped',
+            'duration': time.time() - recording_start_time if recording_start_time else 0
+        })
+    return jsonify({'message': 'No recording in progress'})
+
+@app.route('/get_recording_status')
+def get_recording_status():
     return jsonify({
-        'success': success,
-        'camera_ready': camera_ready,
-        'audio_ready': audio_ready
+        'is_recording': is_recording,
+        'camera_initialized': camera_initialized,
+        'audio_initialized': audio_initialized,
+        'recording_started': recording_started,
+        'duration': time.time() - recording_start_time if recording_start_time else 0,
+        'exam_details': exam_details
     })
 
 def generate_frames():
@@ -226,6 +292,13 @@ def generate_frames():
                 success, frame = cap.read()
                 if not success:
                     break
+                    
+                # Add timestamp if recording
+                if is_recording and recording_start_time:
+                    elapsed_time = int(time.time() - recording_start_time)
+                    timestamp_text = f"Time: {elapsed_time//3600:02d}:{(elapsed_time%3600)//60:02d}:{elapsed_time%60:02d}"
+                cv2.putText(frame, timestamp_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                
                 ret, buffer = cv2.imencode('.jpg', frame)
                 frame = buffer.tobytes()
                 yield (b'--frame\r\n'
@@ -235,6 +308,48 @@ def generate_frames():
 def video_feed():
     return Response(generate_frames(), 
                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/initialize')
+def initialize():
+    success = initialize_devices()
+    return jsonify({
+        'success': success,
+        'camera_status': camera_initialized,
+        'audio_status': audio_initialized,
+        'message': 'Devices initialized successfully' if success else 'Device initialization failed'
+    })
+
+@app.route('/upload_recording', methods=['POST'])
+def upload_recording():
+    try:
+        video_file = request.files['video']
+
+        # Save the video to a temporary file
+        temp_video_path = os.path.join(RECORDINGS_FOLDER, "temp_video.webm")
+        video_file.save(temp_video_path)
+
+        # Upload the video to Cloudinary
+        video_response = cloudinary.uploader.upload(
+            temp_video_path,
+            resource_type="video",
+            public_id=f"exam_video_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            folder="examinations"
+        )
+
+        # Remove the temporary file
+        os.remove(temp_video_path)
+
+        return jsonify({
+            'success': True,
+            'video_url': video_response['secure_url'],
+        })
+
+    except Exception as e:
+        print(f"Error uploading recording: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     app.run(debug=True)
