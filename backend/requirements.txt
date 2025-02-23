@@ -15,7 +15,7 @@ mtcnn==1.0.0
 numpy==2.2.3
 opencv-python==4.11.0.86
 packaging==24.2
-PyAudio==0.2.14
+pyaudio==0.2.11
 six==1.17.0
 SpeechRecognition==3.14.1
 standard-aifc==3.13.0
