@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import "./verification.css";
 import { useNavigate } from 'react-router-dom';
 
@@ -15,8 +15,11 @@ const Verification = () => {
     const verified = localStorage.getItem("verified");
     const papercode = localStorage.getItem('papercode');
     const navigate = useNavigate();
-    const [streamUrl, setStreamUrl] = useState(null);
+    const videoRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const streamRef = useRef(null);
     const backendUrl = "https://backend-o9s5.onrender.com";
+    const chunksRef = useRef([]);
 
     useEffect(() => {
         if (!loginStatus) {
@@ -29,28 +32,29 @@ const Verification = () => {
             navigate("/rules");
         }
     }, [verified, navigate]);
-   useEffect(() => {
+
+    useEffect(() => {
         const getPermissions = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: true
                 });
-                /* use the stream */
-                 setDeviceStatus(prevState => ({
+                
+                streamRef.current = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+                
+                setDeviceStatus(prevState => ({
                     ...prevState,
                     camera: true,
                     audio: true,
                     checking: false
                 }));
-                   setStreamUrl(`${backendUrl}/video_feed`)
                 setTestStatus('Devices are ready! Please Wait ...');
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
             } catch (err) {
-                /* handle the error */
-                 setDeviceStatus(prevState => ({
+                setDeviceStatus(prevState => ({
                     ...prevState,
                     camera: false,
                     audio: false,
@@ -59,91 +63,128 @@ const Verification = () => {
                 setTestStatus(`Failed to access devices: ${err.message}. Please check permissions.`);
                 console.error("Failed to access devices:", err);
             }
-        }
+        };
         getPermissions();
+        
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+        };
     }, []);
-    const checkDevices = () => {
-           setDeviceStatus(prevState => ({
-                ...prevState,
-                checking: true
-            }));
+
+    const checkDevices = async () => {
+        setDeviceStatus(prevState => ({
+            ...prevState,
+            checking: true
+        }));
         setTestStatus("Checking the devices...");
-        fetch(`${backendUrl}/initialize`)
-            .then((response) => response.json())
-            .then((data) => {
-                setDeviceStatus({
-                    camera: data.camera_status,
-                    audio: data.audio_status,
-                    checking: false
-                });
-                  if (data.camera_status ) {
-                    setTestStatus('Devices are ready! Please Wait ...');
-                    setStreamUrl(`${backendUrl}/video_feed`)
-                } else {
-                    setTestStatus('Some devices are not ready. Please check your camera. Press f12 to look into the camera error');
-                }
-            })
-            .catch((error) => {
-                console.error('Error checking devices:', error);
-                setTestStatus('Error checking devices. Please refresh the page.');
-                setDeviceStatus(prev => ({ ...prev, checking: false }));
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true
             });
+            
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            
+            setDeviceStatus({
+                camera: true,
+                audio: true,
+                checking: false
+            });
+            setTestStatus('Devices are ready! Please Wait ...');
+        } catch (error) {
+            console.error('Error checking devices:', error);
+            setTestStatus('Error checking devices. Please refresh the page.');
+            setDeviceStatus(prev => ({ 
+                ...prev, 
+                checking: false,
+                camera: false,
+                audio: false
+            }));
+        }
     };
 
-    const startTest = () => {
+    const startTest = async () => {
         if (!deviceStatus.camera) {
             alert('Please ensure your camera is working before starting the test.');
             return;
         }
 
         setIsRecording(true);
-        setTestStatus('Please wait...');
+        setTestStatus('Starting recording...');
 
-        fetch(`${backendUrl}/start_exam_recording`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name,
-                papercode
-            })
-        })
-            .then(() => {
-                const intervalId = setInterval(() => {
-                    fetch(`${backendUrl}/get_recording_status`)
-                        .then((response) => response.json())
-                        .then((statusData) => {
-                            if (statusData.is_recording) {
-                                setTestStatus('Recording in progress... Please wait...');
-                            } else if (statusData.recording_started) {
-                                setTestStatus('Recording completed! You can now proceed with the test.');
-                                setIsRecording(false);
-                                clearInterval(intervalId);
-                                localStorage.setItem("verified", true);
-                                navigate('/rules');
-                            }
-                        });
-                }, 1000);
-            })
-            .catch((error) => {
-                console.error(error);
-                setIsRecording(false);
-                setTestStatus('Error in recording. Please try again.');
+        try {
+            const response = await fetch(`${backendUrl}/start_exam_recording`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, papercode })
             });
+
+            if (response.ok) {
+                // Start recording using MediaRecorder
+                const mediaRecorder = new MediaRecorder(streamRef.current, {
+                    mimeType: 'video/webm'
+                });
+                
+                mediaRecorderRef.current = mediaRecorder;
+                chunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        chunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+                    const formData = new FormData();
+                    formData.append('video', blob, 'recording.webm');
+                    formData.append('name', name);
+                    formData.append('papercode', papercode);
+
+                    try {
+                        const uploadResponse = await fetch(`${backendUrl}/upload_video_chunk`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (uploadResponse.ok) {
+                            setTestStatus('Recording completed! You can now proceed with the test.');
+                            localStorage.setItem("verified", true);
+                            navigate('/rules');
+                        }
+                    } catch (error) {
+                        console.error('Upload error:', error);
+                        setTestStatus('Error uploading recording. Please try again.');
+                    }
+                };
+
+                mediaRecorder.start(1000); // Collect chunks every second
+                setTestStatus('Recording in progress... Please wait...');
+            }
+        } catch (error) {
+            console.error(error);
+            setIsRecording(false);
+            setTestStatus('Error in recording. Please try again.');
+        }
     };
 
     const stopTest = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+        }
+        
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        
         setIsRecording(false);
-        setTestStatus('Recording stopped due to logout.');
-
-        // Send a request to stop the recording on the server
-        fetch(`${backendUrl}/stop_exam_recording`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name,
-                papercode
-            })
-        });
+        setTestStatus('Recording stopped.');
     };
 
     return (
@@ -161,16 +202,14 @@ const Verification = () => {
             </div>
 
             <h3 className="verification_webcam_heading">Webcam Feed</h3>
-            {streamUrl ? (
-                <img
-                    id="verification_webcam"
-                    className="verification_webcam"
-                    src={streamUrl}
-                    alt="Webcam feed"
-                />
-            ) : (
-                <p>Webcam feed will appear here after initialization.</p>
-            )}
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="verification_webcam"
+            />
+            
             {!deviceStatus.checking && deviceStatus.camera && (
                 <button
                     className="verification_start_test_btn"
