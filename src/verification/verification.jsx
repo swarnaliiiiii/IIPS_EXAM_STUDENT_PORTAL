@@ -10,12 +10,13 @@ const Verification = () => {
     });
     const [testStatus, setTestStatus] = useState('Checking devices...');
     const [isRecording, setIsRecording] = useState(false);
-    const loginStatus = localStorage.getItem('loginStatus') === 'true'; // Ensure it's a boolean
+    const loginStatus = localStorage.getItem('loginStatus') === 'true';
     const name = localStorage.getItem('name');
     const verified = localStorage.getItem("verified");
     const papercode = localStorage.getItem('papercode');
     const navigate = useNavigate();
     const [streamUrl, setStreamUrl] = useState(null);
+    const backendUrl = "https://backend-o9s5.onrender.com";
 
     useEffect(() => {
         if (!loginStatus) {
@@ -42,7 +43,7 @@ const Verification = () => {
                     audio: true,
                     checking: false
                 }));
-                   setStreamUrl("http://127.0.0.1:5000/video_feed")
+                   setStreamUrl(`${backendUrl}/video_feed`)
                 setTestStatus('Devices are ready! Please Wait ...');
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
@@ -67,7 +68,7 @@ const Verification = () => {
                 checking: true
             }));
         setTestStatus("Checking the devices...");
-        fetch('http://127.0.0.1:5000/initialize')
+        fetch(`${backendUrl}/initialize`)
             .then((response) => response.json())
             .then((data) => {
                 setDeviceStatus({
@@ -77,7 +78,7 @@ const Verification = () => {
                 });
                   if (data.camera_status ) {
                     setTestStatus('Devices are ready! Please Wait ...');
-                    setStreamUrl("http://127.0.0.1:5000/video_feed")
+                    setStreamUrl(`${backendUrl}/video_feed`)
                 } else {
                     setTestStatus('Some devices are not ready. Please check your camera. Press f12 to look into the camera error');
                 }
@@ -98,7 +99,7 @@ const Verification = () => {
         setIsRecording(true);
         setTestStatus('Please wait...');
 
-        fetch('http://127.0.0.1:5000/start_exam_recording', {
+        fetch(`${backendUrl}/start_exam_recording`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -108,7 +109,7 @@ const Verification = () => {
         })
             .then(() => {
                 const intervalId = setInterval(() => {
-                    fetch('http://127.0.0.1:5000/get_recording_status')
+                    fetch(`${backendUrl}/get_recording_status`)
                         .then((response) => response.json())
                         .then((statusData) => {
                             if (statusData.is_recording) {
@@ -135,7 +136,7 @@ const Verification = () => {
         setTestStatus('Recording stopped due to logout.');
 
         // Send a request to stop the recording on the server
-        fetch('http://127.0.0.1:5000/stop_exam_recording', {
+        fetch(`${backendUrl}/stop_exam_recording`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
